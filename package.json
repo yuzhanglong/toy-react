@@ -44,7 +44,7 @@
     "collectCoverageFrom": [
       "src/**/*.ts"
     ],
-    "testEnvironment": "node"
+    "testEnvironment": "jsdom"
   },
   "scripts": {
     "lint": "eslint --ext .js --ext .jsx --max-warnings 0 ./src",
