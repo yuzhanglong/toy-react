@@ -1,15 +1,6 @@
-const TEXT_ELEMENT = 'TEXT';
+import { ReactNode, ReactProps } from './types';
+import { TEXT_ELEMENT } from './constant';
 
-type ReactProps = {
-  [key: string]: any
-} & {
-  children?: ReactNode[]
-}
-
-interface ReactNode {
-  type: string
-  props: ReactProps
-}
 
 /**
  * 创建一个 text 节点
@@ -65,7 +56,9 @@ function render(element: ReactNode, container: HTMLElement | Text) {
     return key !== 'children';
   };
 
-  let DOMElement = element.type === TEXT_ELEMENT ? document.createTextNode('') : document.createElement(element.type);
+  let DOMElement = element.type === TEXT_ELEMENT
+    ? document.createTextNode('')
+    : document.createElement(element.type);
 
   // 挂载必要的属性到 DOM 上
   const props = element.props;
