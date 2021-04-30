@@ -59,6 +59,20 @@ function createElement(type: string, props: ReactProps, ...children: (ReactNode 
 
 
 export function updateDOM(dom: HTMLElement, prevProps: ReactProps, nextProps: ReactProps) {
+  // 移除旧的监听器
+  Object
+    .keys(prevProps)
+    .filter(isEvent)
+    // key 不存在或者key 存在但是引用对象不同
+    .filter(key => (!(key in nextProps) || (prevProps[key] !== nextProps[key])))
+    .forEach(name => {
+      // onClick -> onclick -> click
+      const eventType = name.toLowerCase().substring(2);
+      // 移除回调
+      dom.removeEventListener(eventType, prevProps[name]);
+    });
+
+  // 处理旧的 props，如果旧的 props 的某一项在新的 props 中不再出现，移除之
   Object
     .keys(prevProps)
     .filter(isProperty)
@@ -67,11 +81,23 @@ export function updateDOM(dom: HTMLElement, prevProps: ReactProps, nextProps: Re
       dom[name] = '';
     });
 
+  // 处理新的 props，只处理改变的 props
   Object.keys(nextProps)
     .filter(isProperty)
     .filter((val) => prevProps[val] !== nextProps[val])
     .forEach(name => {
       dom[name] = nextProps[name];
+    });
+
+  // 添加监听器
+  Object.keys(nextProps)
+    .filter(isEvent)
+    // 前后不一致
+    .filter(key => prevProps[key] !== nextProps[key])
+    .forEach(name => {
+      // onClick -> onclick -> click
+      const eventType = name.toLowerCase().substring(2);
+      dom.addEventListener(eventType, nextProps[name]);
     });
 }
 
