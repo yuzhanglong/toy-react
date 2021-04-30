@@ -26,7 +26,9 @@ module.exports = (env, argv) => {
       ],
     },
     plugins: [
-      new HtmlWebpackPlugin(),
+      new HtmlWebpackPlugin({
+        template: path.resolve(basePath, 'e2e', 'index.html'),
+      }),
     ],
     module: {
       rules: [

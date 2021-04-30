@@ -57,7 +57,7 @@ function createElement(type: string, props: ReactProps, ...children: (ReactNode 
   };
 }
 
-function updateDOM(dom: HTMLElement, prevProps: ReactProps, nextProps: ReactProps) {
+function updateDOM(dom: HTMLElement | Text, prevProps: ReactProps, nextProps: ReactProps) {
   // 移除旧的监听器
   Object
     .keys(prevProps)
@@ -101,17 +101,22 @@ function updateDOM(dom: HTMLElement, prevProps: ReactProps, nextProps: ReactProp
 }
 
 function commitWork(fiber: ReactFiber) {
+  // commit - DOM 更新
   if (!fiber) {
     return;
   }
 
   const domParent = fiber.parent.dom;
-  if (fiber.effectTag === 'PLACEMENT' && fiber.dom) {
+  const fiberDOM = fiber.dom;
+  if (fiber.effectTag === 'PLACEMENT' && fiberDOM) {
+    // placement 添加节点
     domParent.appendChild(fiber.dom);
-  } else if (fiber.effectTag === 'UPDATE' && fiber.dom) {
-    updateDOM(fiber.dom, fiber.alternate.props, fiber.props);
+  } else if (fiber.effectTag === 'UPDATE' && fiberDOM) {
+    // update 更新节点
+    updateDOM(fiberDOM, fiber.alternate.props, fiber.props);
   } else if (fiber.effectTag === 'DELETION') {
-    domParent.removeChild(fiber.dom);
+    // 移除节点
+    domParent.removeChild(fiberDOM);
   }
 
   commitWork(fiber.child);
@@ -119,7 +124,9 @@ function commitWork(fiber: ReactFiber) {
 }
 
 function commitRoot() {
-  deletions.forEach(commitWork);
+  deletions.forEach((fiberToDelete) => {
+    commitWork(fiberToDelete);
+  });
   commitWork(wipRoot.child);
   currentRoot = wipRoot;
   wipRoot = null;
@@ -134,14 +141,14 @@ function render(element: ReactNode, container: HTMLElement) {
         element,
       ],
     },
+    alternate: currentRoot,
     child: null,
     parent: null,
     sibling: null,
     type: '',
-    // TODO: ?
-    effectTag: undefined,
-    alternate: currentRoot,
+    effectTag: null,
   };
+
   deletions = [];
   // 赋值给下一个工作单元
   nextUnitOfWork = wipRoot;
@@ -153,14 +160,7 @@ function createDOM(fiber: ReactFiber): HTMLElement {
     ? document.createTextNode('')
     : document.createElement(fiber.type);
 
-  // 挂载必要的属性到 DOM 上
-  const props = fiber.props;
-  Object
-    .keys(props)
-    .filter(key => isProperty(key))
-    .forEach(k => {
-      DOMElement[k] = props[k];
-    });
+  updateDOM(DOMElement, {} as unknown, fiber.props);
 
   return DOMElement as HTMLElement;
 }
@@ -187,27 +187,26 @@ function performUnitOfWork(fiber: ReactFiber): ReactFiber {
   while (nextFiber) {
     if (nextFiber.sibling) {
       return nextFiber.sibling;
+    } else {
+      nextFiber = nextFiber.parent;
     }
-    nextFiber = nextFiber.parent;
   }
 }
 
 function reconcileChildren(wipFiber: ReactFiber, elements: ReactNode[]) {
   let index = 0;
 
-  let oldFiber = wipFiber.alternate && wipFiber.alternate.child;
-
+  let oldFiber = wipFiber.alternate?.child;
   let prevSibling: ReactFiber = null;
 
-
-  while (index < elements.length || oldFiber !== null) {
+  while (index < elements.length || oldFiber) {
     const currentElement = elements[index];
     let newFiber: ReactFiber = null;
-    // 新旧 fiber 类型是否相同？
-    const sameType = oldFiber && currentElement && currentElement.type === oldFiber.type;
+    // 新旧 fiber 类型是否相同
+    const isSameType: boolean = oldFiber && currentElement && currentElement.type === oldFiber.type;
 
-    // 如果新旧 fiber 具有相同的类型，我们保留 DOM 节点，并尝试更新 props
-    if (sameType) {
+    // 如果新旧 fiber 存在且具有相同的类型，我们保留 DOM 节点，并尝试更新 props
+    if (isSameType) {
       newFiber = {
         // 新的 fiber 类型，由于前后两者类型相同才会进入此分支，我们使用旧的就可以
         type: oldFiber.type,
@@ -227,7 +226,7 @@ function reconcileChildren(wipFiber: ReactFiber, elements: ReactNode[]) {
     }
 
     // 如果类型不同，并且当前节点存在，说明有一个新元素
-    if (currentElement && !sameType) {
+    if (currentElement && !isSameType) {
       newFiber = {
         type: currentElement.type,
         alternate: null,
@@ -244,9 +243,13 @@ function reconcileChildren(wipFiber: ReactFiber, elements: ReactNode[]) {
     }
 
     // 如果类型不同，并且有旧 fiber，删除旧节点
-    // TODO: 考虑一下 key 的使用来优化性能？
-    if (oldFiber && !sameType) {
+    if (oldFiber && !isSameType) {
       oldFiber.effectTag = 'DELETION';
+    }
+
+
+    if (oldFiber) {
+      oldFiber = oldFiber.sibling;
     }
 
 
@@ -266,10 +269,13 @@ function reconcileChildren(wipFiber: ReactFiber, elements: ReactNode[]) {
 
 function workLoop(deadline: IdleDeadline) {
   let shouldYield = false;
+  // 有任务并且时间充足，执行工作
   while (nextUnitOfWork && !shouldYield) {
     nextUnitOfWork = performUnitOfWork(nextUnitOfWork);
     shouldYield = deadline.timeRemaining() < 1;
   }
+
+  // commit 阶段
   if (!nextUnitOfWork && wipRoot) {
     commitRoot();
   }
@@ -285,15 +291,22 @@ export const React = {
   render,
 };
 
-/** @jsx React.createElement */
-const rerender = value => {
+const updateValue = (e: Event) => {
+  rerender(((e.target) as any).value);
+};
+
+
+const rerender = (val: string) => {
   const element = (
     <div>
-      <input />
-      <h2>Hello {value}</h2>
+      <div>
+        <input onInput={updateValue} value={val} />
+        <h2>{val}</h2>
+      </div>
     </div>
   );
-  console.log(element);
+  const el = document.getElementById('app');
+  React.render(element, el);
 };
 
 rerender('world');
