@@ -57,8 +57,7 @@ function createElement(type: string, props: ReactProps, ...children: (ReactNode 
   };
 }
 
-
-export function updateDOM(dom: HTMLElement, prevProps: ReactProps, nextProps: ReactProps) {
+function updateDOM(dom: HTMLElement, prevProps: ReactProps, nextProps: ReactProps) {
   // 移除旧的监听器
   Object
     .keys(prevProps)
@@ -280,7 +279,21 @@ function workLoop(deadline: IdleDeadline) {
 
 window.requestIdleCallback(workLoop);
 
+
 export const React = {
   createElement,
   render,
 };
+
+/** @jsx React.createElement */
+const rerender = value => {
+  const element = (
+    <div>
+      <input />
+      <h2>Hello {value}</h2>
+    </div>
+  );
+  console.log(element);
+};
+
+rerender('world');
