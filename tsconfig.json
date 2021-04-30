@@ -18,6 +18,7 @@
     "outDir": "lib"
   },
   "include": [
-    "src/**/*"
+    "src/**/*",
+    "index.d.ts"
   ]
 }
