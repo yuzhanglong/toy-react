@@ -63,6 +63,14 @@ export function createReactExecutor() {
     };
   }
 
+  /**
+   * 更新实际的 DOM
+   *
+   * @return {ReactNode} 一个 react 节点对象
+   * @param dom dom 元素
+   * @param prevProps 旧 props
+   * @param nextProps 新 props
+   */
   function updateDOM(dom: HTMLElement | Text, prevProps: ReactProps, nextProps: ReactProps) {
     // 移除旧的监听器
     Object
@@ -106,6 +114,11 @@ export function createReactExecutor() {
       });
   }
 
+  /**
+   * commit 阶段 -- 遍历 fiber 树，将改动更新到 DOM
+   *
+   * @param fiber 需要更新的 fiber 对象
+   */
   function commitWork(fiber: ReactFiber) {
     // commit - DOM 更新
     if (!fiber) {
@@ -138,8 +151,13 @@ export function createReactExecutor() {
     commitWork(fiber.sibling);
   }
 
+  /**
+   * 删除节点
+   *
+   * @param fiber 需要更新的 fiber 对象
+   * @param domParent 父节点的 DOM
+   */
   function commitDeletion(fiber: ReactFiber, domParent: HTMLElement) {
-    // TODO: 用链表的方式改写之，不采用递归
     if (fiber.dom) {
       domParent.removeChild(fiber.dom);
     } else {
@@ -148,6 +166,10 @@ export function createReactExecutor() {
     }
   }
 
+  /**
+   * 更新根节点
+   * 处理需要删除的节点，并调用 commitWork
+   */
   function commitRoot() {
     deletions.forEach((fiberToDelete) => {
       commitWork(fiberToDelete);
@@ -157,6 +179,12 @@ export function createReactExecutor() {
     wipRoot = null;
   }
 
+  /**
+   * 渲染 react DOM
+   *
+   * @param element react DOM 节点
+   * @param container 要挂载到的 DOM 对象
+   */
   function render(element: ReactNode, container: HTMLElement) {
     // 初始化 root Fiber
     wipRoot = {
@@ -179,6 +207,11 @@ export function createReactExecutor() {
     nextUnitOfWork = wipRoot;
   }
 
+  /**
+   * 为 fiber 初始化 DOM，注意，这里的 DOM 并没有实际插入到浏览器的节点中
+   *
+   * @param fiber react Fiber node
+   */
   function createDOM(fiber: ReactFiber): HTMLElement {
     // 根据节点类型来初始化节点
     let DOMElement = fiber.type === TEXT_ELEMENT
@@ -190,6 +223,11 @@ export function createReactExecutor() {
     return DOMElement as HTMLElement;
   }
 
+  /**
+   * 处理一个单元的工作（一个 requestIdleCallback）
+   *
+   * @param fiber react Fiber node
+   */
   function performUnitOfWork(fiber: ReactFiber): ReactFiber {
     // 如果 fiber type 为 function(函数式组件)
     if (typeof fiber.type === 'function') {
@@ -217,6 +255,11 @@ export function createReactExecutor() {
     }
   }
 
+  /**
+   * 处理函数式组件
+   *
+   * @param fiber react Fiber node
+   */
   function updateFunctionComponent(fiber: ReactFiber) {
     wipFiber = fiber;
     hookIndex = 0;
@@ -229,6 +272,11 @@ export function createReactExecutor() {
     reconcileChildren(fiber, children);
   }
 
+  /**
+   * 处理一般的组件(html 标签、文本)
+   *
+   * @param fiber react Fiber node
+   */
   function updateHostComponent(fiber: ReactFiber) {
     // 如果不存在相应的 DOM，构建之
     if (!fiber.dom) {
@@ -240,6 +288,23 @@ export function createReactExecutor() {
     reconcileChildren(fiber, elements.flat());
   }
 
+  /**
+   * 检查孩子节点，并进行标记（负责找出变化的组件）
+   *
+   * 具体操作如下：
+   * 1. 先拿到旧 fiber 的 alternate 属性，它保存了历史状态
+   * 2. 遍历所有的 elements，然后：
+   * 2.1 拿到新 fiber 和对应索引的旧 fiber
+   * 2.2 判断他们的 type 是否相同，例如 div 和 div 比较，span 和 div 比较
+   * 2.3 如果类型相同，我们作出 UPDATE 标记，表示我们不需要更新 DOM 标签，只需要修改其内部内容
+   * 2.4 如果类型不同，我们作出 PLACEMENT 标记，新的标签将被创建
+   * 同时我们将旧的 fiber 压入全局的 deletion 数组，并标记 DELETION，它将在下一个 commit 被删除
+   * 2.5 将 oldFiber 指向下一个兄弟节点
+   * 2.6 将新的 fiber 的父亲指向 wipFiber，并利用 prevSibling 构建兄弟关系(见代码)
+   *
+   * @param wipFiber 当前工作的 fiber
+   * @param elements 子组件
+   */
   function reconcileChildren(wipFiber: ReactFiber, elements: ReactNode[]) {
     let index = 0;
 
@@ -315,6 +380,11 @@ export function createReactExecutor() {
     }
   }
 
+  /**
+   * 基于 requestIdleCallback 的工作循环
+   *
+   * @param deadline IdleDeadline API
+   */
   function workLoop(deadline: IdleDeadline) {
     let shouldYield = false;
     // 有任务并且时间充足，执行工作
