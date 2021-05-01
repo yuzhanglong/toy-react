@@ -332,16 +332,16 @@ export function createReactExecutor() {
   }
 
   function useState(initial: any) {
-    const oldHook = wipFiber?.alternate?.hooks[hookIndex];
+    const oldHook: ReactHook = wipFiber?.alternate?.hooks[hookIndex];
     const hook: ReactHook = {
-      state: oldHook ? oldHook.state : initial,
+      baseState: oldHook ? oldHook.baseState : initial,
       queue: [],
     };
 
     const actions = oldHook ? oldHook.queue : [];
 
     actions.forEach(action => {
-      hook.state = action(hook.state);
+      hook.baseState = action(hook.baseState);
     });
 
     const setState = (action: any) => {
@@ -365,7 +365,26 @@ export function createReactExecutor() {
     wipFiber.hooks.push(hook);
     hookIndex++;
 
-    return [hook.state, setState];
+    return [hook.baseState, setState];
+  }
+
+  function useEffect(callback: () => any, deps?: any[]) {
+    const oldHook: ReactHook = wipFiber?.alternate?.hooks[hookIndex];
+
+    const hook: ReactHook = {
+      deps: deps,
+    };
+
+    // 验证依赖是否被改变
+    const checkChanged = () => deps ? !deps.every((item, index) => item === oldHook.deps[index]) : true;
+
+    // 如果旧 hook 不存在，或者没有依赖，或者依赖改变，我们执行回调函数
+    if (!oldHook || !deps || checkChanged()) {
+      callback();
+    }
+
+    wipFiber.hooks.push(hook);
+    hookIndex++;
   }
 
   window.requestIdleCallback(workLoop);
@@ -374,5 +393,6 @@ export function createReactExecutor() {
     createElement,
     render,
     useState,
+    useEffect,
   };
 }

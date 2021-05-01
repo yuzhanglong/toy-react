@@ -12,8 +12,12 @@ export interface ReactNode {
 }
 
 export interface ReactHook {
-  state: any
-  queue: any[]
+  // 初始状态
+  baseState?: any
+  // 状态队列
+  queue?: any[]
+  // 依赖，用于 useEffect
+  deps?: any[]
 }
 
 export interface ReactFiber {
