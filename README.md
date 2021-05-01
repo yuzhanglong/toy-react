@@ -2,6 +2,13 @@
 
 A toy React, developed in TypeScript
 
+- fiber
+- FunctionComponent
+- useEffect
+- useState
+- 其他的 hook 有空添加
+
+
 ## Usage
 
 **install dependencies**
