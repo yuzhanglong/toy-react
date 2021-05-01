@@ -4,16 +4,23 @@ export type ReactProps = {
   children?: ReactNode[]
 }
 
+export type FunctionComponent = (props: ReactProps) => ReactNode
+
 export interface ReactNode {
   type: string
   props: ReactProps
+}
+
+export interface ReactHook {
+  state: any
+  queue: any[]
 }
 
 export interface ReactFiber {
   // 对应 DOM
   dom: HTMLElement
   // 类型
-  type: string
+  type: string | FunctionComponent
   // props
   props: ReactProps
   // 父节点
@@ -26,4 +33,6 @@ export interface ReactFiber {
   alternate: ReactFiber
   // 修改标记
   effectTag: 'UPDATE' | 'PLACEMENT' | 'DELETION'
+  // hooks
+  hooks?: ReactHook[]
 }
